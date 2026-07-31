@@ -1,0 +1,242 @@
+
+# Write-up — Light (TryHackMe) 
+
+--- 
+
+## Lab Description 
+
+Before starting, let's read the lab description:
+
+![lab description](Screenshots/labdescription.png)
+The lab itself provided us with a valid username and a database service called "Light" running on port 1337, accessible via `nc`.
+
+Before proceeding, I want to map the full attack surface of the host.
+
+---
+
+## Reconnaissance — Nmap
+
+**Stage 1 — Standard TCP scan:**
+
+![](Screenshots/firstnmap.png)
+Only one port found — interesting, since we already know a database service is running on port 1337. Let's try a different approach using `-sS` (SYN scan):
+
+**Stage 2 — SYN scan:**
+
+![](Screenshots/secondnmap.png)
+Port 1337 confirmed. No additional services found.
+
+	Note 1: It's worth noting that Stage 2 (SYN scan) reported the warning `retransmission cap hit (10)`, indicating possible network instability or rate limiting during the scan. Because of this, the absence of port 1337 in Stage 1 shouldn't be attributed with certainty to a behavioral difference between scan types (TCP connect vs SYN) — it may simply have been packet loss or timing issues on the first attempt.
+
+ 	**Note 2:** UDP and --source-port scans were also performed — nothing else discovered. Attack surface summary: **SSH (22)** and the **Light database (1337)**.
+
+---
+## Initial Interaction — Connecting to the Database 
+
+Connecting via `nc` on port 1337, the database prompts for a username and returns the corresponding password:
+
+![](Screenshots/nc.png)
+Testing the found credentials against SSH yielded no results — these credentials are not valid for SSH. 
+With a narrow attack surface (SSH + custom database), the next logical step is to test for **SQL Injection** on the database input field.
+
+---
+## SQL Injection — Discovery
+
+![](Screenshots/'.png)
+The database appears vulnerable to SQLi. Analysing the responses:
+
+- A single quote `'` breaks the query — triggering `LIMIT 30` in the error, revealing part of the backend query structure
+- Double single quotes `''` do not break the query — returns "Username not found" normally
+- Comment characters (`--`, `/*`, `%0b`) are **blocked** by the backend 
+
+From this behaviour, we can infer the backend query structure:
+
+```sql
+SELECT Password
+FROM ...
+WHERE Username='<input>'
+LIMIT 30;
+```
+
+When a single quote is injected, the query breaks like this:
+
+```sql
+SELECT Password
+FROM ...
+WHERE Username='''
+LIMIT 30;      <-- unmatched quote cause syntax error
+```
+
+With twice quote the query can close cleanly:
+
+```sql
+SELECT Password
+FROM ...
+WHERE Username=''''   
+LIMIT 30;      <-- matched a quote and no cause syntax error
+```
+
+In other words, doubling the quote makes the parser treat it as an escaped character within the string, rather than as an early termination of the value — which is why the query executes normally and returns "Username not found" instead of an error
+
+Comment characters are sanitised — we cannot comment out the rest of the query.
+
+---
+
+## UNION-Based Injection — Filter Bypass
+
+To test the injection, I used the UNION operator, which allows combining the results of an additional SELECT statement with the original query.
+
+Testing `UNION` and `SELECT` keywords:
+
+![](Screenshots/casesensitive-evidence.png)
+The backend implements a **case-sensitive blacklist**:  
+- `UNION`, `union`, `SELECT` → blocked
+- `Union`, `Select`, `uNiOn` → **pass through** 
+
+This is a critical observation: the SQL parser itself is **not** case-sensitive (SQL keywords work regardless of case), but the blacklist **is** case-sensitive — meaning mixed-case payloads bypass the filter while remaining fully executable by the database engine. 
+
+Example: `UNION = union = Union = uNiOn` — all execute identically.
+
+---
+
+## Determining Column Count
+
+![[Columns.png]]
+Testing with `NULL` to determine the number of columns the original query returns: 
+- `'Union Select NULL';` → `Password: None` ✅ (1 column accepted) 
+- `'Union Select NULL,NULL';` → Error: columns mismatch ❌ 
+
+**Result:** the original query returns exactly **1 column** per query. 
+
+> Note: even though only 1 column can be returned per query, we can use string concatenation to combine multiple columns into a single output — more on this below.
+
+---
+
+## Identifying the Database Engine
+
+ Based on the service name "LIGHT", I hypothesised this might be **SQLite**. Confirming:
+
+![](Screenshots/sqlite_version.png)
+
+Confirmed! — the backend uses **SQLite 3.31.1**.
+
+---
+
+## Schema Enumeration — sqlite_master
+
+In SQLite, the table `sqlite_master` stores the complete database schema — all table names, column names, and their structure.
+
+![](Screenshots/sqlite_master.png)
+**At this point, we have everything needed to enumerate the database..** We now have the complete database structure:
+
+- Table: *admintable*
+- Columns: *id*, *username*, *password*
+
+> **Note:** the "Password:" prefix in every output is a static string from the backend — it always appears regardless of what we query, and carries no meaning for our purposes.
+
+---
+
+## Data Extraction — String Concatenation
+
+
+Since only 1 column can be returned per query, we use SQLite's string concatenation operator `||` to combine multiple columns into a single output, using a custom separator for readability:
+
+```
+|| ":::" ||
+```
+
+This separator (`:::`) makes the output clean and easy to read.
+
+![](Screenshots/adminuser.png)
+
+Results:
+- `'Union Select id FROM admintable';` → `Password: 1` ✅
+- `'Union Select id,username FROM admintable';` → Error (2 columns) ❌
+- `'Union Select id || ":::" || username || ":::" || password FROM admintable';`
+	--->`Password: 1 ::: TryHackMeAdmin ::: mamZtAuMlrsEy5bp6q17` ✅ 
+
+Two challenge answers captured: **username** and **password**. Still missing the flag.
+
+---
+
+## Counting Records — COUNT(\*)
+
+
+We’ve already examined the entire database structure and couldn't find the flag... The answer is that there is more than one record here, but our query is only retrieving the first row; by using the `count(*)` parameter, we can list how many records there are.
+
+![](Screenshots/registernumber.png)
+Two records exist. The flag is likely in the second row.
+
+---
+
+## Extracting All Rows — group_concat()
+
+
+Since we can only retrieve one column per query, we use SQLite's `group_concat()` function to merge multiple rows into a single string output:
+
+The payload looks like this:
+
+```
+'Union Select group_concat(id||":::"||username||':::'||password,'    |||    ' ) FROM admintable';
+```
+
+![](Screenshots/flag.png)
+**GOTCHA!** Both records now visible:
+
+- Record 1: `id=1`, `username=TryHackMeAdmin`, `password=mamZtAuMlrsEy5bp6q17`
+- Record 2: `id=2`, `username=flag`, `password=THM{SQLit3_InJ3cTion_is_SimplE_n0?}` 🚩
+
+---
+
+## Lessons Learned
+
+
+**Reconstructed backend query:**
+
+```sql
+SELECT password
+FROM admintable
+WHERE username='<input>'
+LIMIT 30
+```
+
+
+**Blocked comment characters:**
+
+--  
+/*
+%0b
+
+**Case-sensitive blacklist bypass:**
+
+UNION → blocked  
+union → blocked  
+Union → passes ✅  
+uNiOn → passes ✅
+
+
+**SQLite-specific techniques used**
+
+- `sqlite_master` → full schema enumeration
+- `String concatenation` || → multiple columns in one query
+- `group_concat()` → multiple rows in one query
+- `COUNT(*)` → record counting
+- `sqlite_version()` → fingerprinting
+
+---
+
+## Conclusion & Vulnerability Impact
+
+SQL Injection is a straightforward vulnerability to identify — but understanding how to interact correctly with the underlying database engine is what determines the depth of exploitation.
+
+Once inside the database with the right payloads, an attacker has **complete control** over all stored data. The risks are clear:
+
+- Extraction of sensitive user data (credentials, PII, etc.);
+- Full database schema enumeration without prior knowledge;
+- Potential access to server-level information depending on the database configuration;
+- In certain scenarios, complete server compromise.
+
+What makes this particularly critical: **no authentication was required**. Everything started with a simple `nc` connection. This elevates the severity to **Critical** — unauthenticated arbitrary command injection into a database engine.
+
+---
+> Made by [Noname](https://github.com/NonamesecX) | For educational purposes only!!!
