@@ -8,6 +8,7 @@
 Before starting, let's read the lab description:
 
 ![lab description](Screenshots/labdescription.png)
+
 The lab itself provided us with a valid username and a database service called "Light" running on port 1337, accessible via `nc`.
 
 Before proceeding, I want to map the full attack surface of the host.
@@ -19,11 +20,13 @@ Before proceeding, I want to map the full attack surface of the host.
 **Stage 1 — Standard TCP scan:**
 
 ![](Screenshots/firstnmap.png)
+
 Only one port found — interesting, since we already know a database service is running on port 1337. Let's try a different approach using `-sS` (SYN scan):
 
 **Stage 2 — SYN scan:**
 
 ![](Screenshots/secondnmap.png)
+
 Port 1337 confirmed. No additional services found.
 
 	Note 1: It's worth noting that Stage 2 (SYN scan) reported the warning `retransmission cap hit (10)`, indicating possible network instability or rate limiting during the scan. Because of this, the absence of port 1337 in Stage 1 shouldn't be attributed with certainty to a behavioral difference between scan types (TCP connect vs SYN) — it may simply have been packet loss or timing issues on the first attempt.
@@ -36,6 +39,7 @@ Port 1337 confirmed. No additional services found.
 Connecting via `nc` on port 1337, the database prompts for a username and returns the corresponding password:
 
 ![](Screenshots/nc.png)
+
 Testing the found credentials against SSH yielded no results — these credentials are not valid for SSH. 
 With a narrow attack surface (SSH + custom database), the next logical step is to test for **SQL Injection** on the database input field.
 
@@ -43,6 +47,7 @@ With a narrow attack surface (SSH + custom database), the next logical step is t
 ## SQL Injection — Discovery
 
 ![](Screenshots/sqli.png)
+
 The database appears vulnerable to SQLi. Analysing the responses:
 
 - A single quote `'` breaks the query — triggering `LIMIT 30` in the error, revealing part of the backend query structure
@@ -89,6 +94,7 @@ To test the injection, I used the UNION operator, which allows combining the res
 Testing `UNION` and `SELECT` keywords:
 
 ![](Screenshots/casesensitive-evidence.png)
+
 The backend implements a **case-sensitive blacklist**:  
 - `UNION`, `union`, `SELECT` → blocked
 - `Union`, `Select`, `uNiOn` → **pass through** 
@@ -102,6 +108,7 @@ Example: `UNION = union = Union = uNiOn` — all execute identically.
 ## Determining Column Count
 
 ![](Screenshots/columns.png)
+
 Testing with `NULL` to determine the number of columns the original query returns: 
 - `'Union Select NULL';` → `Password: None` ✅ (1 column accepted) 
 - `'Union Select NULL,NULL';` → Error: columns mismatch ❌ 
@@ -127,6 +134,7 @@ Confirmed! — the backend uses **SQLite 3.31.1**.
 In SQLite, the table `sqlite_master` stores the complete database schema — all table names, column names, and their structure.
 
 ![](Screenshots/sqlite_master.png)
+
 **At this point, we have everything needed to enumerate the database..** We now have the complete database structure:
 
 - Table: *admintable*
@@ -165,6 +173,7 @@ Two challenge answers captured: **username** and **password**. Still missing the
 We’ve already examined the entire database structure and couldn't find the flag... The answer is that there is more than one record here, but our query is only retrieving the first row; by using the `count(*)` parameter, we can list how many records there are.
 
 ![](Screenshots/registernumber.png)
+
 Two records exist. The flag is likely in the second row.
 
 ---
@@ -181,6 +190,7 @@ The payload looks like this:
 ```
 
 ![](Screenshots/flag.png)
+
 **GOTCHA!** Both records now visible:
 
 - Record 1: `id=1`, `username=TryHackMeAdmin`, `password=mamZtAuMlrsEy5bp6q17`
