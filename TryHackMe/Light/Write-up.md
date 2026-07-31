@@ -13,7 +13,9 @@ The lab itself provided us with a valid username and a database service called "
 
 Before proceeding, I want to map the full attack surface of the host.
 
+
 ---
+
 
 ## Reconnaissance — Nmap
 
@@ -31,9 +33,12 @@ Port 1337 confirmed. No additional services found.
 
 	Note 1: It's worth noting that Stage 2 (SYN scan) reported the warning `retransmission cap hit (10)`, indicating possible network instability or rate limiting during the scan. Because of this, the absence of port 1337 in Stage 1 shouldn't be attributed with certainty to a behavioral difference between scan types (TCP connect vs SYN) — it may simply have been packet loss or timing issues on the first attempt.
 
- 	**Note 2:** UDP and --source-port scans were also performed — nothing else discovered. Attack surface summary: **SSH (22)** and the **Light database (1337)**.
+ 	Note 2: UDP and --source-port scans were also performed — nothing else discovered. Attack surface summary: SSH (22) and the Light database (1337).
+
 
 ---
+
+
 ## Initial Interaction — Connecting to the Database 
 
 Connecting via `nc` on port 1337, the database prompts for a username and returns the corresponding password:
@@ -43,7 +48,10 @@ Connecting via `nc` on port 1337, the database prompts for a username and return
 Testing the found credentials against SSH yielded no results — these credentials are not valid for SSH. 
 With a narrow attack surface (SSH + custom database), the next logical step is to test for **SQL Injection** on the database input field.
 
+
 ---
+
+
 ## SQL Injection — Discovery
 
 ![](Screenshots/sqli.png)
@@ -85,7 +93,10 @@ In other words, doubling the quote makes the parser treat it as an escaped chara
 
 Comment characters are sanitised — we cannot comment out the rest of the query.
 
+
+
 ---
+
 
 ## UNION-Based Injection — Filter Bypass
 
@@ -103,7 +114,9 @@ This is a critical observation: the SQL parser itself is **not** case-sensitive 
 
 Example: `UNION = union = Union = uNiOn` — all execute identically.
 
+
 ---
+
 
 ## Determining Column Count
 
@@ -117,7 +130,9 @@ Testing with `NULL` to determine the number of columns the original query return
 
 > Note: even though only 1 column can be returned per query, we can use string concatenation to combine multiple columns into a single output — more on this below.
 
+
 ---
+
 
 ## Identifying the Database Engine
 
@@ -127,7 +142,9 @@ Testing with `NULL` to determine the number of columns the original query return
 
 Confirmed! — the backend uses **SQLite 3.31.1**.
 
+
 ---
+
 
 ## Schema Enumeration — sqlite_master
 
@@ -142,7 +159,9 @@ In SQLite, the table `sqlite_master` stores the complete database schema — all
 
 > **Note:** the "Password:" prefix in every output is a static string from the backend — it always appears regardless of what we query, and carries no meaning for our purposes.
 
+
 ---
+
 
 ## Data Extraction — String Concatenation
 
@@ -165,7 +184,9 @@ Results:
 
 Two challenge answers captured: **username** and **password**. Still missing the flag.
 
+
 ---
+
 
 ## Counting Records — COUNT(\*)
 
@@ -176,7 +197,9 @@ We’ve already examined the entire database structure and couldn't find the fla
 
 Two records exist. The flag is likely in the second row.
 
+
 ---
+
 
 ## Extracting All Rows — group_concat()
 
@@ -196,7 +219,9 @@ The payload looks like this:
 - Record 1: `id=1`, `username=TryHackMeAdmin`, `password=mamZtAuMlrsEy5bp6q17`
 - Record 2: `id=2`, `username=flag`, `password=THM{SQLit3_InJ3cTion_is_SimplE_n0?}` 🚩
 
+
 ---
+
 
 ## Lessons Learned
 
@@ -233,7 +258,9 @@ uNiOn → passes ✅
 - `COUNT(*)` → record counting
 - `sqlite_version()` → fingerprinting
 
+
 ---
+
 
 ## Conclusion & Vulnerability Impact
 
