@@ -42,7 +42,7 @@ With a narrow attack surface (SSH + custom database), the next logical step is t
 ---
 ## SQL Injection — Discovery
 
-![](Screenshots/'.png)
+![](Screenshots/sqli.png)
 The database appears vulnerable to SQLi. Analysing the responses:
 
 - A single quote `'` breaks the query — triggering `LIMIT 30` in the error, revealing part of the backend query structure
@@ -101,7 +101,7 @@ Example: `UNION = union = Union = uNiOn` — all execute identically.
 
 ## Determining Column Count
 
-![[Columns.png]]
+![](Screenshots/columns.png)
 Testing with `NULL` to determine the number of columns the original query returns: 
 - `'Union Select NULL';` → `Password: None` ✅ (1 column accepted) 
 - `'Union Select NULL,NULL';` → Error: columns mismatch ❌ 
