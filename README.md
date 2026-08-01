@@ -16,5 +16,17 @@ The goal is to build a personal knowledge base while also providing educational 
 
 New write-ups will be published regularly as I continue studying offensive security and completing new labs and challenges.
 
+---
+
+## License
+
+This project is licensed under the **Creative Commons Attribution 4.0 International (CC BY 4.0)**.
+
+You are free to share and adapt the material, provided appropriate credit is given.
+
+For the full license text, see the `LICENSE` file.
+
+---
+
 
 > **Disclaimer:** All write-ups are based on intentionally vulnerable machines and legal training environments such as TryHackMe, Hack The Box, PortSwigger, and similar platforms.
