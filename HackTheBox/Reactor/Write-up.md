@@ -42,7 +42,7 @@ an HTTP service running on that port:
 nmap reactor.lab -p 3000 -sC -sV
 ```
 
-![](Screenshots/nmap p- 3000.png)
+![](Screenshots/nmap3000.png)
 
 Key response headers:
 
