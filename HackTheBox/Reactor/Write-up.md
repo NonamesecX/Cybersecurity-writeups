@@ -94,9 +94,9 @@ A module for **CVE-2025-55182** was identified — an
 unauthenticated Remote Code Execution vulnerability affecting React
 Server Components in Next.js.
 
-The module was configured with the target parameters:
-
 ![](Screenshots/msfconsoleoptions.png)
+
+The module was configured with the target parameters:
 
 RHOSTS → reactor.lab  
 LHOST → tun0 (HTB VPN interface)  
@@ -138,7 +138,9 @@ ls -la
 ```
 file reactor.db
 ```
-
+```
+sqlite3 reactor.db
+```
 ```
 SELECT sql FROM sqlite_master;
 ```
