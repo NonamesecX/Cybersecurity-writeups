@@ -97,14 +97,28 @@ Analysis of the extracted files revealed:
 
 ## Web Application Analysis — Virtual Host Discovery
 
-The initial HTTP access to `madeye.lab:80` returned only the default Apache index page. However, the email extracted from SMB explicitly mentioned `hogwartz-castle.thm` as a registered domain for the target.
+Now we can proceed with fuzzing the web application.
+
+![gobuster](gobuster1.png)
+
+A `/backup` directory was discovered. This is interesting, but direct access to the directory is not allowed. However, we can also fuzz its contents:
+
+![email-found](gobuster2.png)
+/backup/email was found
+
+accessing this email:
+
+![backup-email](madeye-mail.png)
+This email contains crucial information: it reveals the actual domain associated with the host.
+
+The initial HTTP access to `madeye.lab:80` returned only the default Apache index page. However, the email extracted from /backup/email explicitly mentioned `hogwartz-castle.thm` as a registered domain for the target.
 
 **Hypothesis:** Apache is configured with name-based virtual hosting, serving different content depending on the Host header value.
 
 To test this hypothesis, `/etc/hosts` was updated to include the discovered domain:
 
 ```bash
-10.129.164.205 hogwartz-castle.thm
+<IP> hogwartz-castle.thm
 ```
 
 Accessing the application via the custom domain revealed a login interface:
@@ -276,6 +290,8 @@ Analysis confirmed the hash format as **SHA-512 (mode 1700 in hashcat)**.
 
 Using hashcat with the `best64.rule` ruleset (which applies statistically common password transformations):
 
+![find-best64](find-best64.png)
+
 ```bash
 hashcat -m 1700 -a 0 -r /usr/share/john/rules/best64.rule harryhash.txt \
   /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt
@@ -368,9 +384,13 @@ The editor was invoked with hermonine's privileges:
 
 ![pico-startup](Screenshots/sudo-hermonine.png)
 
+
 ![pico-read-file](Screenshots/open-pico-read-file.png)
 
+![[to-file.png]]
+
 Using the "Read File" feature (`Ctrl+R`), the home directory structure was enumerated:
+
 
 ```
 DIR: /home/
@@ -424,9 +444,7 @@ Among standard system binaries, one suspicious custom binary was identified:
 ls -la /srv/time-turner/swagger
 ```
 
-```
--rwsr-xr-x 1 root root 8816 Nov 26 2020 /srv/time-turner/swagger
-```
+![[found-swagger.png]]
 
 **Interpretation:**
 

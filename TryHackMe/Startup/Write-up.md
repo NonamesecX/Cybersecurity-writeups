@@ -114,6 +114,11 @@ ftp startup.lab
 # Password: (empty)
 ```
 
+![[ftp.png]]
+
+![[lsftp.png]]
+
+
 The PHP reverse shell used during this assessment was the
 **PentestMonkey PHP Reverse Shell**, configured with the attacker's
 IP address and listener port:
@@ -159,6 +164,7 @@ Basic filesystem enumeration revealed a directory named `incidents`
 at the filesystem root, owned by `www-data`:
 
 ![](Screenshots/incidents.png)
+`NOTE: recipe.txt have a first answer flag`
 
 Inside, a packet capture file was discovered:
 

