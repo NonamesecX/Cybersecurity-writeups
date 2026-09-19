@@ -2,7 +2,6 @@
 
 **Difficulty:** Easy  
 **Operating System:** Linux
-**Category:** CTF (Web Application Exploitation + Privilege Escalation)  
 
 ---
 
@@ -160,17 +159,3 @@ REFERER:https://hoop.dev/blog/privilege-escalation-in-vim-a-simple-path-to-root
 
 ![[root.png]]
 
----
-
-## Attack Chain Summary
-
-| # | Stage | Method | Result |
-|---|---|---|---|
-| 1 | Reconnaissance | Nmap | Services identified |
-| 2 | FTP Enum | Anonymous Login | ForMitch.txt discovered |
-| 3 | Web Enum | Gobuster | /simple/ found |
-| 4 | Fingerprinting | Manual | CMS Made Simple 2.2.8 |
-| 5 | Vulnerability | CVE Research | CVE-2019-9053 identified |
-| 6 | Exploitation | Blind Time-Based SQLi | Credentials extracted |
-| 7 | Initial Access | SSH | User shell accessed |
-| 8 | PrivEsc | Sudo Vim | Root shell obtained |
