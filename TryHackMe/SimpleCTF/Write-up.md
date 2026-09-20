@@ -11,12 +11,12 @@
 
 Configure local hostname resolution:
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/etchosts.png]]
+![](Screenshots/etchosts.png)
 ### Nmap Scan — Full Port Enumeration
 
 Perform comprehensive port scanning to identify services:
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/nmap.png]]
+![](Screenshots/nmap.png)
 
 **Initial Observations:**
 
@@ -32,13 +32,13 @@ Perform comprehensive port scanning to identify services:
 
 Connect to FTP with anonymous credentials:
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/ftp.png]]
+![](Screenshots/ftp.png)
 
-![[ftpfile.png]]
+![](Screenshots/ftpfile.png)
 
 **File Contents:**
 
-![[formitch.png]]
+![](Screenshots/formitch.png)
 
 The message suggests:
 
@@ -52,15 +52,15 @@ Default apache page on the web application
 
 Enumerate web directories to discover hidden paths:
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/gobuster.png]]
+![](Screenshots/gobuster.png)
 
 **Redirect Discovery:**
 
 Accessing `/simple/` reveals a CMS application.
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/application.png]]
+![](Screenshots/application.png)
 
-![[versionCMS.png]]
+![](Screenshots/versionCMS.png)
 
 **Application Name:** CMS Made Simple™  
 **Version:** 2.2.8  
@@ -74,13 +74,13 @@ There a critical CVE for this CMS version
 
 ### Identify CVE-2019-9053
 
-![[CVE.png]]
+![](Screenshots/CVE.png)
 
 **CVSS Score:** 8.1 (High)  
 
 Search searchsploit CMS Made Simple 2.2.8 vulnerabilities:
 
-![[exploitCMS.png]]
+![](Screenshots/exploitCMS.png)
 
 
 ---
@@ -91,11 +91,11 @@ Search searchsploit CMS Made Simple 2.2.8 vulnerabilities:
 
 **Clone/Download Exploit:**
 
-![[searchsploit.png]]
+![](Screenshots/searchsploit.png)
 
 **Set Up Virtual Environment (Python 2 compatibility):**
 
-![[venv.png]]
+![](Screenshots/venv.png)
 
 **Analyze Exploit Code:**
 
@@ -105,7 +105,7 @@ The exploit uses time-based SQL injection to extract:
 - Database structure information
 
 Exploit usage:
-![[exploitusage.png]]
+![](Screenshots/exploitusage.png)
 
 ### Execute SQL Injection Exploit
 
@@ -115,7 +115,7 @@ Exploit usage:
 python 46635.py -u http://ctf.lab/simple --crack -w /path/to/rockyou.txt
 ```
 
-![[Pasted image 20260830221303.png]]
+![](Screenshots/credentials.png)
 
 
 ---
@@ -130,11 +130,11 @@ Connect via SSH on non-standard port 2222:
 ssh mitch@ctf.lab -p 2222
 ```
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/ssh.png]]
+![](Screenshots/ssh.png)
 
 /home/mitch:
 
-![[Machines/TryHackMe/SimpleCTF/Screenshots/userflag.png]]
+![](Screenshots/userflag.png)
 
 ---
 
@@ -142,7 +142,7 @@ ssh mitch@ctf.lab -p 2222
 
 `sudo -l`
 
-![[sudol.png]]
+![](Screenshots/sudol.png)
 
 **Analysis:**
 
@@ -154,8 +154,11 @@ ssh mitch@ctf.lab -p 2222
 
 The Vim editor, when executed with sudo privileges, can spawn an interactive shell:
 
-![[vimprivesc.png]]
+![](Screenshots/vimprivesc.png)
 REFERER:https://hoop.dev/blog/privilege-escalation-in-vim-a-simple-path-to-root
 
-![[root.png]]
+![](Screenshots/root.png)
 
+---
+
+Made by NonamesecX | For educational purposes only
