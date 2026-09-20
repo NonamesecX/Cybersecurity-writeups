@@ -76,6 +76,8 @@ There a critical CVE for this CMS version
 
 ![](Screenshots/CVE.png)
 
+REFERER:https://nvd.nist.gov/vuln/detail/cve-2019-9053
+
 **CVSS Score:** 8.1 (High)  
 
 Search searchsploit CMS Made Simple 2.2.8 vulnerabilities:
@@ -155,7 +157,9 @@ ssh mitch@ctf.lab -p 2222
 The Vim editor, when executed with sudo privileges, can spawn an interactive shell:
 
 ![](Screenshots/vimprivesc.png)
+
 REFERER:https://hoop.dev/blog/privilege-escalation-in-vim-a-simple-path-to-root
+
 
 ![](Screenshots/root.png)
 
