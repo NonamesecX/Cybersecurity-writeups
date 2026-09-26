@@ -1,7 +1,7 @@
 # Ignite — TryHackMe Writeup
 
-**Difficulty:** Easy
-**Operating System:** Linux
+**Difficulty:** Easy                                                                                    
+**Operating System:** Linux                                                                           
 **Category:** Web Exploitation + Privilege Escalation  
 
 ---
