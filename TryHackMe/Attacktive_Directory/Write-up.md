@@ -1,7 +1,7 @@
 # Attacktive Directory — TryHackMe Complete Writeup
 
-**Difficulty:** Medium                                              
-**Operating System:** Windows 
+**Difficulty:** Medium                                                                             
+**Operating System:** Windows
 **Category:** Active Directory Enumeration + Kerberos Enumeration
 
 ---
@@ -43,7 +43,7 @@ nmap -sC -sV -p- ad.lab --min-rate 500 -o ports.txt
 **Extracted Information:**
 
 Domain: spookysec.local
-Domain Controller: AttacktiveDirectorey.spookysec.local
+Domain Controller: AttacktiveDirectory.spookysec.local
 NetBIOS Name: ATTACKTIVEDIREC
 OS Version: Windows Server 2019 (10.0.17763)
 
@@ -59,7 +59,7 @@ OS Version: Windows Server 2019 (10.0.17763)
 
 - Normal: Client sends username + encrypted timestamp (proves password knowledge) → KDC issues TGT
 - Vulnerable: Pre-auth disabled accounts allow TGT request without authentication
-- Kerbrute Exploit: Sends AS-REQ messages; different KDC responses indicate valid/invalid usernames
+- Kerbrute enumeration: Sends AS-REQ messages; different KDC responses indicate valid/invalid usernames
 
 ### User Enumeration
 
@@ -109,6 +109,19 @@ python3 /usr/bin/GetNPUsers.py spookysec.local/ -dc-ip ad.lab -usersfile validus
 ```
 $krb5asrep$23$
 ```
+### Encryption Type Selection & Cracking Difficulty
+
+**Critical Discovery:** Kerbrute initially captured an AS-REP using **etype 18 (AES256-CTS-HMAC-SHA1-96)**, which proved impractical to crack with the available resources. A subsequent request using `GetNPUsers.py` returned an **etype 23 (RC4-HMAC)** AS-REP for the same `svc-admin` account, which could be cracked using the provided wordlist.
+
+**Why This Occurs:**
+
+Kerberos supports multiple encryption types. The KDC can select the encryption type based on the types requested and supported by the client and account. In this case, the two AS-REP responses used different encryption types: **AES256 (etype 18)** and **RC4-HMAC (etype 23)**.
+
+**Cracking Decision:**
+
+The etype 23 response was selected for offline password cracking because RC4-HMAC is substantially more practical for password-guessing workloads than AES-based AS-REP material in this lab environment.
+
+ **Both AS-REP responses belong to the same user account (`svc-admin`). The difference is the encryption type used to protect the AS-REP material: etype 18 (AES256) versus etype 23 (RC4-HMAC).**
 
 
 ---
@@ -153,14 +166,14 @@ smbclient -L //ad.lab -U svc-admin --password={password}
 
 **Available Shares:**
 
-| Share                | Type | Comment            |
-| -------------------- | ---- | ------------------ |
-| ADMIN$               | Disk | Remote Admin       |
-| **backup** (suspect) | Disk | (empty comment)    |
-| c$                   | Disk | Default share      |
-| IPC$                 | IPC  | Remote IPC         |
-| NETLOGON             | Disk | Logon server share |
-| SYSVOL               | Disk | Logon server share |
+| Share      | Type | Comment            |
+| ---------- | ---- | ------------------ |
+| ADMIN$     | Disk | Remote Admin       |
+| **backup** | Disk | (empty comment)    |
+| c$         | Disk | Default share      |
+| IPC$       | IPC  | Remote IPC         |
+| NETLOGON   | Disk | Logon server share |
+| SYSVOL     | Disk | Logon server share |
 
 **Why This Matters:** svc-admin has sufficient permissions to access multiple shares including 'backup' — unusual for a standard service account and indicates privilege misconfiguration.
 
